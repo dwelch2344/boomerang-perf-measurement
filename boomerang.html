@@ -1,0 +1,102 @@
+<!DOCTYPE HTML> 
+<html> 
+<head> 
+  <script src="https://raw.github.com/yahoo/boomerang/master/boomerang.js" type="text/javascript"></script> 
+  <script>
+    tplPrefix = 'ds_';
+    // configure boomerang
+    BOOMR.init({
+      user_ip: '10.0.0.1',
+      // beacon_url: 'http://localhost/projects/test.php',
+      site_domain: window.location.host, 
+      BW: {
+        base_url : 'https://raw.github.com/yahoo/boomerang/master/images/',
+        nruns: 3
+      }
+    });
+    // start the timer
+    BOOMR.plugins.RT.startTimer( tplPrefix + 'head'); 
+  </script>
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/1.0.rc.1/handlebars.min.js"></script>
+  
+  <script>
+    // clean up our data from boomerang and then fire it off ourselves
+    BOOMR.subscribe('before_beacon', function(res) {
+      var data = {
+        page_ready: res.t_done,     // ms until onload
+        page_load: res.t_page,      // ms until all html processed
+        page_render: res.t_resp     // ms until rendered
+      };
+      if( res.bw ){
+        data.bandwidth = parseInt(res.bw / 1024); // kbps
+
+      }
+      if( res.lat ){
+        data.latency = res.lat;
+        data.latency_err = res.lat_err
+      }
+      if( res.t_other ){
+        data.timings = [];
+        res.t_other.split('|').forEach(function(str){
+          var values = str.split(',');
+          if( values[1] && values[1].substr(0, tplPrefix.length) == tplPrefix ){
+            data.timings.push({ 
+              key : values[1].substr(3),
+              value : values[0]
+            });
+          }
+        });
+      };
+
+      // render it to the screen 
+      var source   = $("#template").remove().html();
+      var template = Handlebars.compile(source);
+      var html = template(data);
+      $('#results').html(html);
+
+      // TODO fire it off
+      console.log("Result: ", data);
+    });
+  </script>
+
+
+  <title>PerfTest</title>
+  <style> .hidden{ display: none;} </style>
+  <script> BOOMR.plugins.RT.endTimer( tplPrefix + 'head'); </script>
+</head> 
+<body> 
+  <script> BOOMR.plugins.RT.startTimer( tplPrefix + 'body'); </script>
+
+  <h1>Boomerang Test </h1> 
+  <p> This is just a simple test that loads boomerang 
+
+  <div id="results"> 
+  </div>
+  
+  <!-- load this script slowly to simulate a lot of content -->
+  <script src="http://deelay.me/1500?https://gist.github.com/raw/4541130/99678df1c39db7f94bb2db534a541a1119cd0c4b/slow.js" type="Text/javascript"></script>
+
+  
+  <!-- A template for handlebars -->
+  <div class="hidden" id="template" type="text/x-handlebars-template">
+    <p> This page took {{page_ready}} ms to fully load: {{page_load}} ms to load 
+    the HTML and {{page_render}} ms to render. </p>
+
+    {{#if bandwidth}} <p> Your bandwidth is {{bandwidth}}. </p> {{/if}}
+    {{#if latency}} <p> Your latency is {{latency}} &#x00b1; {{latency_err}} {{/if}}
+
+    {{#if timings}}
+      Template render times:
+      <ul>
+      {{#each timings}}
+        <li>{{key}} - {{value}} </li>
+      {{/each}}
+      <ul>
+    {{/if}}
+  </div>
+
+  <script> BOOMR.plugins.RT.endTimer( tplPrefix + 'body'); </script> 
+</body> 
+</html>
